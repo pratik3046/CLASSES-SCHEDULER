@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>University Timetable Generator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load jsPDF and jsPDF-AutoTable for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.umd.js"></script>
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Use Inter font family */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom style for message box transitions */
+        #message-box {
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+            opacity: 0;
+            transform: translateY(-20px);
+            pointer-events: none;
+        }
+
+        #message-box.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Style for the generated table */
+        #timetable-grid table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        #timetable-grid th, #timetable-grid td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+            text-align: center;
+            height: 80px;
+            vertical-align: top;
+            font-size: 0.875rem;
+            word-wrap: break-word;
+        }
+        #timetable-grid th {
+            background-color: #f8fafc;
+        }
+        #timetable-grid .time-slot {
+            font-weight: 600;
+            font-size: 0.8rem;
+            vertical-align: middle;
+            width: 8%;
+        }
+        #timetable-grid .period-cell {
+            padding: 4px;
+        }
+        #timetable-grid .period-cell strong {
+            display: block;
+            font-weight: 600;
+            color: #1e3a8a; /* Darker blue for subject */
+        }
+        #timetable-grid .period-cell span {
+            font-size: 0.75rem;
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Message Box for notifications -->
+    <div id="message-box" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg max-w-lg w-full text-center">
+        <span id="message-text"></span>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-indigo-600">📅 University Timetable Generator</h1>
+            <p class="text-lg text-gray-600 mt-2">Generate a weekly schedule using OOP constraints.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+
+            <!-- Column 1: Configuration -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit sticky top-8 space-y-6">
+                
+                <!-- Add Lecture -->
+                <form id="add-lecture-form" class="space-y-3">
+                    <h2 class="text-xl font-semibold border-b pb-2">Add Lecture Subject</h2>
+                    <div>
+                        <label for="lecture-name" class="block text-sm font-medium text-gray-700 mb-1">Subject Name</label>
+                        <input type="text" id="lecture-name" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Data Structures">
+                    </div>
+                    <div>
+                        <label for="professor-name" class="block text-sm font-medium text-gray-700 mb-1">Professor</label>
+                        <input type="text" id="professor-name" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Dr. Smith">
+                    </div>
+                    <div>
+                        <label for="lecture-count" class="block text-sm font-medium text-gray-700 mb-1">Classes per Week</label>
+                        <input type="number" id="lecture-count" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm" min="1" max="5" value="3">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm font-semibold hover:bg-blue-700">
+                        Add Lecture
+                    </button>
+                </form>
+
+                <!-- Add Lab -->
+                <form id="add-lab-form" class="space-y-3 pt-4 border-t">
+                    <h2 class="text-xl font-semibold border-b pb-2">Add Lab Subject</h2>
+                    <div>
+                        <label for="lab-name" class="block text-sm font-medium text-gray-700 mb-1">Lab Name</label>
+                        <input type="text" id="lab-name" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., DS Lab">
+                    </div>
+                    <div>
+                        <label for="lab-assistant" class="block text-sm font-medium text-gray-700 mb-1">Assistant</label>
+                        <input type="text" id="lab-assistant" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm" placeholder="e.g., Alex Johnson">
+                    </div>
+                    <div>
+                        <label for="lab-count" class="block text-sm font-medium text-gray-700 mb-1">Labs per Week</label>
+                        <input type="number" id="lab-count" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm" min="1" max="5" value="1">
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white py-2 px-4 rounded-md shadow-sm font-semibold hover:bg-green-700">
+                        Add Lab
+                    </button>
+                </form>
+
+                <!-- Scheduled Items List -->
+                <div class="pt-4 border-t">
+                    <h2 class="text-xl font-semibold mb-2">Subjects to Schedule</h2>
+                    <div id="subjects-list" class="space-y-2 max-h-40 overflow-y-auto">
+                        <p id="empty-subjects-msg" class="text-gray-500 text-sm">No subjects added yet.</p>
+                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <button id="generate-btn" class="w-full bg-indigo-600 text-white py-3 px-4 rounded-md shadow-sm font-bold text-lg hover:bg-indigo-700 transition duration-150">
+                    Generate Timetable
+                </button>
+            </div>
+
+            <!-- Column 2: Timetable Display -->
+            <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">Generated Weekly Schedule</h2>
+                <div id="timetable-grid" class="overflow-x-auto">
+                    <p id="empty-schedule-msg" class="text-gray-500 text-center p-8">Click "Generate Timetable" to create your schedule.</p>
+                    <!-- Timetable will be injected here -->
+                </div>
+
+           
+             
+
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- OOP Class Definitions ---
+        
+        // --- Helper Utilities ---
+        
+        /**
+         * Converts "HH:MM" time string to minutes since midnight.
+         */
+        function timeToMinutes(timeStr) {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+        
+        /**
+         * Converts a day index (0-4) to a string.
+         */
+        function dayFromIndex(index) {
+            return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][index];
+        }
+
+        /**
+         * Converts a time slot index (0-8) to an "HH:MM" string.
+         * 0 -> "09:00", 1 -> "10:00", ..., 8 -> "17:00"
+         */
+        function timeFromIndex(index) {
+            const hour = 9 + index;
+            return `${hour.toString().padStart(2, '0')}:00`;
+        }
+
+        /**
+         * 1. Base Class: Period
+         * Represents a single class period.
+         */
+        class Period {
+            constructor(subjectName, startTime, endTime, dayOfWeek) {
+                if (!subjectName || !startTime || !endTime || !dayOfWeek) {
+                    throw new Error("Missing required fields for Period.");
+                }
+                this.subjectName = subjectName;
+                this.startTime = startTime;
+                this.endTime = endTime;
+                this.dayOfWeek = dayOfWeek;
+                this.roomNumber = "TBD"; // Room assignment can be added later
+                
+                this.startMinutes = timeToMinutes(startTime);
+                this.endMinutes = timeToMinutes(endTime);
+                
+                if (this.endMinutes <= this.startMinutes) {
+                    throw new Error("End time must be after start time.");
+                }
+            }
+
+            /**
+             * Returns details for rendering. This is the base version.
+             */
+            displayDetails() {
+                // Special case for Lunch
+                if (this.subjectName === "LUNCH") {
+                    return {
+                        subject: "🍽️ LUNCH",
+                        details: "Break",
+                        bgColor: "bg-gray-100",
+                        type: "Break"
+                    };
+                }
+                // UPDATED: Special case for 2-3 PM Break
+                if (this.subjectName === "BREAK") {
+                    return {
+                        subject: "Break",
+                        details: "---",
+                        bgColor: "bg-gray-50",
+                        type: "Break"
+                    };
+                }
+                return {
+                    subject: this.subjectName,
+                    details: `Room: ${this.roomNumber}`,
+                    bgColor: 'bg-gray-200',
+                    type: "Period"
+                };
+            }
+        }
+
+        /**
+         * 2. Inheritance: Lecture Class
+         * Inherits from Period, 1 hour duration.
+         */
+        class Lecture extends Period {
+            constructor(subjectName, professorName, dayOfWeek, startTime) {
+                // FIX: Parse the startTime string ("HH:MM") back to an index
+                const startHour = parseInt(startTime.split(':')[0], 10);
+                const startIndex = startHour - 9;
+                const endIndex = startIndex + 1; // Lecture is 1 hour
+                const endTime = timeFromIndex(endIndex);
+                super(subjectName, startTime, endTime, dayOfWeek);
+                this.professorName = professorName || 'TBD';
+            }
+
+            /**
+             * 3. Polymorphism (Method Overriding)
+             */
+            displayDetails() {
+                return {
+                    subject: this.subjectName,
+                    details: `<strong>Prof:</strong> ${this.professorName}`,
+                    bgColor: 'bg-blue-100',
+                    type: "Lecture"
+                };
+            }
+        }
+
+        /**
+         * 2. Inheritance: Lab Class
+         * Inherits from Period, 2 hour duration.
+         */
+        class Lab extends Period {
+            constructor(subjectName, labAssistantName, dayOfWeek, startTime) {
+                // Labs are 2 hours long
+                // FIX: Parse the startTime string ("HH:MM") back to an index
+                const startHour = parseInt(startTime.split(':')[0], 10);
+                const startIndex = startHour - 9;
+                const endIndex = startIndex + 2; // Lab is 2 hours
+                const endTime = timeFromIndex(endIndex);
+                super(subjectName, startTime, endTime, dayOfWeek);
+                this.labAssistantName = labAssistantName || 'TBD';
+            }
+
+            /**
+             * 3. Polymorphism (Method Overriding)
+             */
+            displayDetails() {
+                return {
+                    subject: this.subjectName,
+                    details: `<strong>Asst:</strong> ${this.labAssistantName}`,
+                    bgColor: 'bg-green-100',
+                    type: "Lab"
+                };
+            }
+        }
+        
+        /**
+         * 5. Exception Handling: Custom Exception
+         */
+        class ScheduleConflictException extends Error {
+            constructor(message) {
+                super(message);
+                this.name = "ScheduleConflictException";
+            }
+        }
+
+        /**
+         * 4. TimeTableGenerator Class (was Scheduler)
+         * This class contains the logic to build the schedule.
+         */
+        class TimeTableGenerator {
+            constructor() {
+                this.DAYS = 5; // Mon-Fri
+                this.HOURS = 9; // 9-10, 10-11, 11-12, 12-1, 1-2(LUNCH), 2-3(BREAK), 3-4, 4-5, 5-6
+                this.LUNCH_SLOT = 4; // 13:00 - 14:00
+                this.BREAK_SLOT = 5; // 14:00 - 15:00 (NEW)
+                this.grid = [];
+                this.finalSchedule = [];
+                this.initGrid();
+            }
+
+            // Create an empty 2D array for the grid
+            initGrid() {
+                this.grid = Array(this.DAYS).fill(null).map(() => Array(this.HOURS).fill(null));
+                // Add Lunch break and afternoon break
+                for (let d = 0; d < this.DAYS; d++) {
+                    // Add Lunch
+                    const lunchPeriod = new Period("LUNCH", "13:00", "14:00", dayFromIndex(d));
+                    this.grid[d][this.LUNCH_SLOT] = lunchPeriod;
+
+                    // UPDATED: Add 2-3 PM Break
+                    const breakPeriod = new Period("BREAK", "14:00", "15:00", dayFromIndex(d));
+                    this.grid[d][this.BREAK_SLOT] = breakPeriod;
+                }
+            }
+
+            /**
+             * Shuffles an array in place.
+             * @param {Array} array - The array to shuffle.
+             */
+            shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            /**
+             * NEW: Checks if a subject is already scheduled on a given day.
+             * @param {string} subjectName - The name of the subject to check.
+             * @param {number} dayIndex - The index of the day (0-4).
+             * @returns {boolean} - True if the subject is on the day, false otherwise.
+             */
+            isSubjectOnDay(subjectName, dayIndex) {
+                for (let h = 0; h < this.HOURS; h++) {
+                    const period = this.grid[dayIndex][h];
+                    if (period && period.subjectName === subjectName) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            /**
+             * The main generation logic.
+             * @param {Array} lecturesToSchedule - List of lecture info objects.
+             * @param {Array} labsToSchedule - List of lab info objects.
+             * @returns {Array} The 2D grid of Period objects.
+             */
+            generate(lecturesToSchedule, labsToSchedule) {
+                this.initGrid(); // Reset the grid
+                this.finalSchedule = [];
+                let periodsToPlace = []; // This will just hold info, not objects
+
+                // 1. Create all Period INFO to be scheduled
+                //    This fixes the bug where "TBD" was passed to constructors
+                for (const lect of lecturesToSchedule) {
+                    for (let i = 0; i < lect.count; i++) {
+                        periodsToPlace.push({
+                            type: 'lecture',
+                            name: lect.name,
+                            professor: lect.professor
+                        });
+                    }
+                }
+                for (const lab of labsToSchedule) {
+                    for (let i = 0; i < lab.count; i++) {
+                        periodsToPlace.push({
+                            type: 'lab',
+                            name: lab.name,
+                            assistant: lab.assistant
+                        });
+                    }
+                }
+
+                // 2. Shuffle the list so placement is random
+                this.shuffle(periodsToPlace);
+
+                // 3. Try to place each period
+                for (const periodInfo of periodsToPlace) {
+                    let isPlaced = false;
+                    
+                    // Try 100 random positions to find a spot
+                    for (let attempt = 0; attempt < 100; attempt++) {
+                        const d = Math.floor(Math.random() * this.DAYS); // Random day
+                        const h = Math.floor(Math.random() * this.HOURS); // Random hour
+                        
+                        // NEW CONSTRAINT: Check if this subject is already on this day
+                        if (this.isSubjectOnDay(periodInfo.name, d)) {
+                            continue; // This day already has this subject, try a new random spot
+                        }
+
+                        if (periodInfo.type === 'lab') {
+                            // Lab needs 2 consecutive slots.
+                            // The check 'this.grid[d][h] === null' and 'this.grid[d][h+1] === null'
+                            // will automatically fail on LUNCH_SLOT and BREAK_SLOT.
+                            if (h < this.HOURS - 1 && this.grid[d][h] === null && this.grid[d][h+1] === null) {
+                                const startTime = timeFromIndex(h);
+                                // NOW we create the object with a valid start time
+                                const newLab = new Lab(periodInfo.name, periodInfo.assistant, dayFromIndex(d), startTime);
+                                
+                                this.grid[d][h] = newLab;
+                                this.grid[d][h+1] = newLab; // Mark both slots as taken by the same lab
+                                this.finalSchedule.push(newLab);
+                                isPlaced = true;
+                                break; // Placed successfully, move to next period
+                            }
+                        } else if (periodInfo.type === 'lecture') {
+                            // Lecture needs 1 slot
+                            if (this.grid[d][h] === null) {
+                                const startTime = timeFromIndex(h);
+                                // NOW we create the object with a valid start time
+                                const newLecture = new Lecture(periodInfo.name, periodInfo.professor, dayFromIndex(d), startTime);
+                                
+                                this.grid[d][h] = newLecture;
+                                this.finalSchedule.push(newLecture);
+                                isPlaced = true;
+                                break; // Placed successfully
+                            }
+                        }
+                    } // end of attempts
+
+                    if (!isPlaced) {
+                        // 5. Exception Handling
+                        throw new ScheduleConflictException(
+                            `Could not find a spot for "${periodInfo.name}". The schedule might be too full. Please try generating again or reduce the number of classes.`
+                        );
+                    }
+                } // end of periods loop
+                
+                return this.grid;
+            }
+        }
+
+
+        // --- Application Logic ---
+        const generator = new TimeTableGenerator();
+        let subjects = []; // This will hold { name, professor, count }
+        let labs = [];     // This will hold { name, assistant, count }
+
+        // DOM Element References
+        const lectureForm = document.getElementById('add-lecture-form');
+        const labForm = document.getElementById('add-lab-form');
+        const subjectsList = document.getElementById('subjects-list');
+        const emptySubjectsMsg = document.getElementById('empty-subjects-msg');
+        const generateBtn = document.getElementById('generate-btn');
+        const timetableGrid = document.getElementById('timetable-grid');
+        const emptyScheduleMsg = document.getElementById('empty-schedule-msg');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const downloadPdfBtn = document.getElementById('download-pdf-btn');
+
+        /**
+         * Renders the list of subjects and labs to be scheduled.
+         */
+        function renderSubjectsList() {
+            subjectsList.innerHTML = ''; // Clear the list
+            
+            // Render lectures
+            subjects.forEach((item, index) => {
+                const itemHtml = `
+                    <div class="bg-blue-50 border-blue-200 border p-2 rounded-md flex justify-between items-center">
+                        <span class="text-sm font-medium">${item.name} (${item.count}/week)</span>
+                        <button class="delete-item-btn text-red-500 hover:text-red-700 text-lg font-bold" data-index="${index}" data-type="lecture" title="Remove">&times;</button>
+                    </div>
+                `;
+                subjectsList.insertAdjacentHTML('beforeend', itemHtml);
+            });
+
+            // Render labs
+            labs.forEach((item, index) => {
+                const itemHtml = `
+                    <div class="bg-green-50 border-green-200 border p-2 rounded-md flex justify-between items-center">
+                        <span class="text-sm font-medium">${item.name} (${item.count}/week)</span>
+                        <button class="delete-item-btn text-red-500 hover:text-red-700 text-lg font-bold" data-index="${index}" data-type="lab" title="Remove">&times;</button>
+                    </div>
+                `;
+                subjectsList.insertAdjacentHTML('beforeend', itemHtml);
+            });
+
+            // Show empty message if both lists are empty
+            if (subjects.length === 0 && labs.length === 0) {
+                subjectsList.innerHTML = '<p id="empty-subjects-msg" class="text-gray-500 text-sm">No subjects added yet.</p>';
+            }
+        }
+        
+        /**
+         * Renders the final timetable grid.
+         * This function demonstrates polymorphism.
+         * @param {Array} grid - The 2D grid from the generator.
+         */
+        function renderTimetable(grid) {
+            timetableGrid.innerHTML = ''; // Clear previous grid
+
+            const table = document.createElement('table');
+
+            // 1. Header
+            const thead = document.createElement('thead');
+            let headerRow = '<tr><th class="time-slot">Time</th>';
+            for (let d = 0; d < generator.DAYS; d++) {
+                headerRow += `<th>${dayFromIndex(d)}</th>`;
+            }
+            headerRow += '</tr>';
+            thead.innerHTML = headerRow;
+            table.appendChild(thead);
+
+            // 2. Body
+            const tbody = document.createElement('tbody');
+
+            for (let h = 0; h < generator.HOURS; h++) {
+                const tr = document.createElement('tr');
+
+                // Time column
+                const timeSlot = `${timeFromIndex(h)} - ${timeFromIndex(h + 1)}`;
+                const timeTd = document.createElement('td');
+                timeTd.className = 'time-slot';
+                timeTd.textContent = timeSlot;
+                tr.appendChild(timeTd);
+
+                // Columns for each day
+                for (let d = 0; d < generator.DAYS; d++) {
+                    const period = grid[d][h];
+
+                    // Skip second row of lab (since rowspan already covers it)
+                    if (h > 0 && grid[d][h - 1] === period && period instanceof Lab) {
+                        const emptyTd = document.createElement('td');
+                        emptyTd.style.display = 'none'; // keep table structure valid
+                        tr.appendChild(emptyTd);
+                        continue;
+                    }
+
+                    if (period) {
+                        // Polymorphism in action: period.displayDetails()
+                        // This calls the correct method (Lecture, Lab, or base Period)
+                        const details = period.displayDetails();
+                        const td = document.createElement('td');
+                        td.className = `period-cell ${details.bgColor}`;
+                        td.innerHTML = `
+                            <strong>${details.subject}</strong>
+                            <span>${details.details}</span>
+                        `;
+                        if (period instanceof Lab) {
+                            td.rowSpan = 2; // 2-hour lab block
+                        }
+                        tr.appendChild(td);
+                    } else {
+                        const emptyTd = document.createElement('td');
+                        tr.appendChild(emptyTd);
+                    }
+                }
+                tbody.appendChild(tr);
+            }
+
+            table.appendChild(tbody);
+            timetableGrid.appendChild(table);
+
+            // Hide the placeholder message
+            if (emptyScheduleMsg) {
+                emptyScheduleMsg.style.display = 'none';
+            }
+        }
+
+
+        /**
+         * Shows a message to the user.
+         */
+        function showMessage(message, type) {
+            messageText.textContent = message;
+            messageBox.className = `fixed top-5 left-1/2 -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg max-w-lg w-full text-center text-white ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} visible`;
+            
+            setTimeout(() => {
+                messageBox.classList.remove('visible');
+            }, 4000);
+        }
+
+       
+
+        // --- Event Handlers ---
+
+        lectureForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            subjects.push({
+                name: document.getElementById('lecture-name').value,
+                professor: document.getElementById('professor-name').value,
+                count: parseInt(document.getElementById('lecture-count').value, 10)
+            });
+            renderSubjectsList();
+            lectureForm.reset();
+            document.getElementById('lecture-count').value = 3; // Reset default
+        });
+
+        labForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            labs.push({
+                name: document.getElementById('lab-name').value,
+                assistant: document.getElementById('lab-assistant').value,
+                count: parseInt(document.getElementById('lab-count').value, 10)
+            });
+            renderSubjectsList();
+            labForm.reset();
+            document.getElementById('lab-count').value = 1; // Reset default
+        });
+        
+        subjectsList.addEventListener('click', (e) => {
+            const deleteButton = e.target.closest('.delete-item-btn');
+            if (deleteButton) {
+                const type = deleteButton.dataset.type;
+                const index = parseInt(deleteButton.dataset.index, 10);
+                
+                // NEW, SIMPLER LOGIC:
+                // The data-index now refers to the index within its specific array
+                if (type === 'lecture') {
+                    subjects.splice(index, 1);
+                } else if (type === 'lab') {
+                    labs.splice(index, 1);
+                }
+                
+                renderSubjectsList();
+            }
+        });
+
+        generateBtn.addEventListener('click', () => {
+            if (subjects.length === 0 && labs.length === 0) {
+                showMessage("Please add at least one subject or lab to schedule.", 'error');
+                return;
+            }
+            
+            try {
+                // 5. Exception Handling: The generator can throw an error
+                const generatedGrid = generator.generate(subjects, labs);
+                renderTimetable(generatedGrid);
+                showMessage("Timetable generated successfully!", 'success');
+                downloadPdfBtn.classList.remove('hidden'); // Show the PDF button
+            } catch (e) {
+                if (e instanceof ScheduleConflictException) {
+                    console.warn(e.message);
+                    showMessage(e.message, 'error');
+                } else {
+                    console.error(e);
+                    showMessage("An unexpected error occurred.", 'error');
+                }
+            }
+        });
+
+        // NEW: Add event listener for the PDF button
+        downloadPdfBtn.addEventListener('click', downloadPDF);
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSubjectsList();
+        });
+
+    </script>
+
+
+</body>
+</html>
