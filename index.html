@@ -7,8 +7,9 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load jsPDF and jsPDF-AutoTable for PDF export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.umd.js"></script>
+
     <!-- Load Inter font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -69,25 +70,62 @@
             font-size: 0.75rem;
             color: #4b5563;
         }
+
+        /* Responsive styles for mobile table */
+        @media (max-width: 640px) {
+            #timetable-grid th, #timetable-grid td {
+                font-size: 0.75rem; /* Even smaller on mobile */
+                padding: 4px; /* Tighter padding */
+                height: 70px;
+            }
+            #timetable-grid .time-slot {
+                font-size: 0.7rem;
+                width: 15%; /* Give time slot more width */
+            }
+            #timetable-grid .period-cell span {
+                font-size: 0.7rem;
+            }
+            
+            /* Make header sticky for horizontal scroll */
+            #timetable-grid th:first-child,
+            #timetable-grid .time-slot {
+                position: sticky;
+                left: 0;
+                z-index: 10;
+                background-color: #f8fafc; /* Match header bg */
+            }
+            #timetable-grid thead th {
+                position: sticky;
+                top: 0;
+                z-index: 20;
+                 background-color: #f8fafc;
+            }
+            #timetable-grid thead th:first-child {
+                z-index: 30; /* Keep top-left corner on top */
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-100 text-gray-800 min-h-screen">
 
     <!-- Message Box for notifications -->
-    <div id="message-box" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg max-w-lg w-full text-center">
+    <!-- MODIFIED: Added w-11/12 for mobile margin -->
+    <div id="message-box" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg w-11/12 max-w-lg text-center">
         <span id="message-text"></span>
     </div>
 
     <div class="container mx-auto p-4 md:p-8 max-w-7xl">
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-indigo-600">📅 University Timetable Generator</h1>
+            <!-- MODIFIED: Responsive header text size -->
+            <h1 class="text-3xl sm:text-4xl font-bold text-indigo-600">📅 University Timetable Generator</h1>
             <p class="text-lg text-gray-600 mt-2">Generate a weekly schedule using OOP constraints.</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
             <!-- Column 1: Configuration -->
-            <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit sticky top-8 space-y-6">
+            <!-- MODIFIED: Changed sticky to lg:sticky to prevent mobile stickiness -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit lg:sticky top-8 space-y-6">
                 
                 <!-- Add Lecture -->
                 <form id="add-lecture-form" class="space-y-3">
@@ -145,15 +183,21 @@
 
             <!-- Column 2: Timetable Display -->
             <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-2xl font-semibold mb-4">Generated Weekly Schedule</h2>
+                
+                <!-- MODIFIED: Replaced H2 with a flex container to hold H2 and the new PDF button -->
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
+                    <h2 class="text-2xl font-semibold">Generated Weekly Schedule</h2>
+                    <!-- ADDED: The missing PDF button -->
+                    <button id="download-pdf-btn" class="hidden bg-red-600 text-white py-2 px-4 rounded-md shadow-sm font-semibold hover:bg-red-700 text-sm">
+                        Download PDF
+                    </button>
+                </div>
+                
                 <div id="timetable-grid" class="overflow-x-auto">
                     <p id="empty-schedule-msg" class="text-gray-500 text-center p-8">Click "Generate Timetable" to create your schedule.</p>
                     <!-- Timetable will be injected here -->
                 </div>
-
            
-             
-
             </div>
 
         </div>
@@ -591,14 +635,78 @@
          */
         function showMessage(message, type) {
             messageText.textContent = message;
-            messageBox.className = `fixed top-5 left-1/2 -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg max-w-lg w-full text-center text-white ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} visible`;
+            messageBox.className = `fixed top-5 left-1/2 -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg w-11/12 max-w-lg text-center text-white ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} visible`;
             
             setTimeout(() => {
                 messageBox.classList.remove('visible');
             }, 4000);
         }
 
-       
+        /**
+         * ADDED: Function to download the timetable as a PDF.
+         */
+        function downloadPDF() {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'landscape', // Better for a wide table
+                });
+                
+                doc.text("University Weekly Timetable", 14, 16);
+
+                // FINAL FIX: The plugin attaches to the jsPDF prototype,
+                // so the autoTable function exists on the 'doc' instance.
+                doc.autoTable({
+                    html: '#timetable-grid table',
+                    startY: 20,
+                    theme: 'grid',
+                    styles: { fontSize: 6, cellPadding: 1, minCellHeight: 10, halign: 'center', valign: 'middle' },
+                    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontSize: 8 }, // Indigo color
+                    didParseCell: function(data) {
+                        // Handle rowspan for labs
+                        const cell = data.cell.raw;
+
+                        // ADDED: Safety check for cell
+                        if (!cell) {
+                            return;
+                        }
+
+                        if (cell.rowSpan === 2) {
+                            data.cell.rowSpan = 2;
+                        }
+                        
+                        // Hide empty cells that were part of a rowspan
+                        if (cell.style.display === 'none') {
+                            data.cell.text = '';
+                            data.cell.styles.willDraw = false; // Don't draw this cell
+                        }
+
+                        // Clean up text content from HTML
+                        // MODIFIED: Added check for raw.innerHTML existence
+                        if (data.cell.text && data.cell.raw && typeof data.cell.raw.innerHTML === 'string') {
+                            let text = data.cell.raw.innerHTML
+                                .replace(/<strong>/g, '')
+                                .replace(/<\/strong>/g, '')
+                                .replace(/<span>/g, '\n')
+                                .replace(/<\/span>/g, '')
+                                .replace(/<br>/g, '\n');
+                            
+                            // Basic HTML entity decode
+                            text = text.replace(/&times;/g, 'x')
+                                       .replace(/&nbsp;/g, ' ')
+                                       .replace(/&amp;/g, '&');
+
+                            data.cell.text = text.trim();
+                        }
+                    }
+                });
+
+                doc.save('university-timetable.pdf');
+            } catch (e) {
+                console.error("Error generating PDF:", e);
+                showMessage("Could not generate PDF.", error);
+            }
+        }
 
         // --- Event Handlers ---
 
@@ -656,6 +764,14 @@
                 renderTimetable(generatedGrid);
                 showMessage("Timetable generated successfully!", 'success');
                 downloadPdfBtn.classList.remove('hidden'); // Show the PDF button
+
+                // NEW: Scroll to the table on mobile after generating
+                if (window.innerWidth < 1024) { // 1024px is the 'lg' breakpoint
+                    const tableElement = document.getElementById('timetable-grid');
+                    if (tableElement) {
+                        tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
             } catch (e) {
                 if (e instanceof ScheduleConflictException) {
                     console.warn(e.message);
