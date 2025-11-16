@@ -6,9 +6,12 @@
     <title>University Timetable Generator</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load jsPDF and jsPDF-AutoTable for PDF export -->
+<!-- jsPDF (UMD build) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.umd.js"></script>
+
+<!-- jsPDF AutoTable plugin -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
 
     <!-- Load Inter font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -108,8 +111,7 @@
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen">
 
-    <!-- Message Box for notifications -->
-    <!-- MODIFIED: Added w-11/12 for mobile margin -->
+    
     <div id="message-box" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg w-11/12 max-w-lg text-center">
         <span id="message-text"></span>
     </div>
@@ -123,8 +125,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
-            <!-- Column 1: Configuration -->
-            <!-- MODIFIED: Changed sticky to lg:sticky to prevent mobile stickiness -->
+
             <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit lg:sticky top-8 space-y-6">
                 
                 <!-- Add Lecture -->
@@ -140,7 +141,7 @@
                     </div>
                     <div>
                         <label for="lecture-count" class="block text-sm font-medium text-gray-700 mb-1">Classes per Week</label>
-                        <input type="number" id="lecture-count" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm" min="1" max="5" value="3">
+                        <input type="number" id="lecture-count" required class="w-full p-2 border border-gray-300 rounded-md shadow-sm" min="1" max="5" value="4">
                     </div>
                     <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md shadow-sm font-semibold hover:bg-blue-700">
                         Add Lecture
@@ -184,7 +185,7 @@
             <!-- Column 2: Timetable Display -->
             <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-md">
                 
-                <!-- MODIFIED: Replaced H2 with a flex container to hold H2 and the new PDF button -->
+                
                 <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
                     <h2 class="text-2xl font-semibold">Generated Weekly Schedule</h2>
                     <!-- ADDED: The missing PDF button -->
@@ -262,7 +263,7 @@
                 // Special case for Lunch
                 if (this.subjectName === "LUNCH") {
                     return {
-                        subject: "🍽️ LUNCH",
+                        subject: "LUNCH",
                         details: "Break",
                         bgColor: "bg-gray-100",
                         type: "Break"
@@ -286,10 +287,10 @@
             }
         }
 
-        /**
-         * 2. Inheritance: Lecture Class
-         * Inherits from Period, 1 hour duration.
-         */
+            /**
+             * 2. Inheritance: Lecture Class
+             * Inherits from Period, 1 hour duration.
+             */
         class Lecture extends Period {
             constructor(subjectName, professorName, dayOfWeek, startTime) {
                 // FIX: Parse the startTime string ("HH:MM") back to an index
@@ -630,9 +631,7 @@
         }
 
 
-        /**
-         * Shows a message to the user.
-         */
+       
         function showMessage(message, type) {
             messageText.textContent = message;
             messageBox.className = `fixed top-5 left-1/2 -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg w-11/12 max-w-lg text-center text-white ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} visible`;
@@ -642,73 +641,89 @@
             }, 4000);
         }
 
-        /**
-         * ADDED: Function to download the timetable as a PDF.
-         */
-        function downloadPDF() {
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({
-                    orientation: 'landscape', // Better for a wide table
+       
+       function downloadPDF() {
+    try {
+        // Try to find the jsPDF constructor (works for most CDN builds)
+        const jsPDFConstructor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (!jsPDFConstructor) {
+            console.error("jsPDF not found on window. Make sure you included jsPDF.");
+            showMessage("PDF export failed: jsPDF not loaded.", 'error');
+            return;
+        }
+        const doc = new jsPDFConstructor({ orientation: 'landscape' });
+
+        // Ensure autoTable plugin is available (attached to doc)
+        if (typeof doc.autoTable !== 'function') {
+            console.error("autoTable plugin not found on jsPDF instance.");
+            showMessage("PDF export failed: autoTable plugin not loaded.", 'error');
+            return;
+        }
+
+        // Find table in DOM
+        const table = document.querySelector('#timetable-grid table');
+        if (!table) {
+            showMessage("No timetable found to export.", 'error');
+            return;
+        }
+
+        // Extract header cells (text)
+        const thead = table.querySelector('thead');
+        const headers = thead
+            ? Array.from(thead.querySelectorAll('th')).map(th => th.innerText.trim())
+            : [];
+
+        // Extract body rows. Replace hidden cells with empty strings so columns line up.
+        const tbody = table.querySelector('tbody');
+        const rows = [];
+        if (tbody) {
+            for (const tr of Array.from(tbody.querySelectorAll('tr'))) {
+                const cells = Array.from(tr.querySelectorAll('th, td'));
+                const row = cells.map(cell => {
+                    // If you used display:none for hidden cells, treat them as empty
+                    if (cell.style && cell.style.display === 'none') return '';
+                    // Use innerText to get visible text and preserve newlines (from <span> etc.)
+                    return (cell.innerText || '').trim();
                 });
-                
-                doc.text("University Weekly Timetable", 14, 16);
-
-                // FINAL FIX: The plugin attaches to the jsPDF prototype,
-                // so the autoTable function exists on the 'doc' instance.
-                doc.autoTable({
-                    html: '#timetable-grid table',
-                    startY: 20,
-                    theme: 'grid',
-                    styles: { fontSize: 6, cellPadding: 1, minCellHeight: 10, halign: 'center', valign: 'middle' },
-                    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontSize: 8 }, // Indigo color
-                    didParseCell: function(data) {
-                        // Handle rowspan for labs
-                        const cell = data.cell.raw;
-
-                        // ADDED: Safety check for cell
-                        if (!cell) {
-                            return;
-                        }
-
-                        if (cell.rowSpan === 2) {
-                            data.cell.rowSpan = 2;
-                        }
-                        
-                        // Hide empty cells that were part of a rowspan
-                        if (cell.style.display === 'none') {
-                            data.cell.text = '';
-                            data.cell.styles.willDraw = false; // Don't draw this cell
-                        }
-
-                        // Clean up text content from HTML
-                        // MODIFIED: Added check for raw.innerHTML existence
-                        if (data.cell.text && data.cell.raw && typeof data.cell.raw.innerHTML === 'string') {
-                            let text = data.cell.raw.innerHTML
-                                .replace(/<strong>/g, '')
-                                .replace(/<\/strong>/g, '')
-                                .replace(/<span>/g, '\n')
-                                .replace(/<\/span>/g, '')
-                                .replace(/<br>/g, '\n');
-                            
-                            // Basic HTML entity decode
-                            text = text.replace(/&times;/g, 'x')
-                                       .replace(/&nbsp;/g, ' ')
-                                       .replace(/&amp;/g, '&');
-
-                            data.cell.text = text.trim();
-                        }
-                    }
-                });
-
-                doc.save('university-timetable.pdf');
-            } catch (e) {
-                console.error("Error generating PDF:", e);
-                showMessage("Could not generate PDF.", error);
+                // Only push rows that have at least one non-empty column (avoid blank rows)
+                rows.push(row);
             }
         }
 
-        // --- Event Handlers ---
+        // Title
+        doc.setFontSize(12);
+        doc.text("University Weekly Timetable", 14, 16);
+
+        // Create the table with autoTable using extracted head/body
+        doc.autoTable({
+            head: headers.length ? [headers] : [],
+            body: rows,
+            startY: 20,
+            theme: 'grid',
+            styles: { fontSize: 6, cellPadding: 1, minCellHeight: 10, halign: 'center', valign: 'middle' },
+            headStyles: { fillColor: [79, 70, 229], textColor: 255, fontSize: 8 },
+            didDrawCell: function(data) {
+                // (Optional) you can do per-cell styling here if needed
+            },
+            // Adjust column widths to fit page better
+            columnStyles: {
+                0: { cellWidth: 28 } // time column usually first — tweak as needed
+            },
+            // Auto-split long text
+            overflow: 'linebreak'
+        });
+
+        // Save the PDF
+        doc.save('university-timetable.pdf');
+
+    } catch (e) {
+        console.error("Error generating PDF:", e);
+        showMessage("Could not generate PDF.", 'error'); // fixed: pass string not undefined variable
+    }
+}
+
+
+        
 
         lectureForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -739,9 +754,7 @@
             if (deleteButton) {
                 const type = deleteButton.dataset.type;
                 const index = parseInt(deleteButton.dataset.index, 10);
-                
-                // NEW, SIMPLER LOGIC:
-                // The data-index now refers to the index within its specific array
+               
                 if (type === 'lecture') {
                     subjects.splice(index, 1);
                 } else if (type === 'lab') {
@@ -765,7 +778,7 @@
                 showMessage("Timetable generated successfully!", 'success');
                 downloadPdfBtn.classList.remove('hidden'); // Show the PDF button
 
-                // NEW: Scroll to the table on mobile after generating
+                
                 if (window.innerWidth < 1024) { // 1024px is the 'lg' breakpoint
                     const tableElement = document.getElementById('timetable-grid');
                     if (tableElement) {
